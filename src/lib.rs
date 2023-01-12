@@ -1,6 +1,7 @@
 #![no_std]
 
 use riscv_clic::peripheral::SYST;
+pub use fugit::{self, ExtU64};
 use rtic_monotonic::Monotonic;
 
 pub struct Systick<const TIMER_HZ: u32> {
