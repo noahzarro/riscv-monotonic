@@ -1,6 +1,6 @@
 #![no_std]
 
-use riscv_clic::peripheral::SYST;
+use riscv_clic::peripheral::{SYST};
 pub use fugit::{self, ExtU64};
 use rtic_monotonic::Monotonic;
 
@@ -18,22 +18,22 @@ impl<const TIMER_HZ: u32> Systick<TIMER_HZ> {
     /// Notice that the actual rate of the timer is a best approximation based on the given
     /// `sysclk` and `TIMER_HZ`.
     pub fn new(mut systick: SYST, sysclk: u32) -> Self {
-        // + TIMER_HZ / 2 provides round to nearest instead of round to 0.
-        // - 1 as the counter range is inclusive [0, reload]
-        let reload = (sysclk + TIMER_HZ / 2) / TIMER_HZ - 1;
 
-        assert!(reload <= 0x00ff_ffff);
-        assert!(reload > 0);
-
-        systick.disable_cascaded_mode();
+        systick.enable_cascaded_mode();
         
-        systick.set_compare_lo(0x8000);
+        //systick.set_compare_lo(0x8000);
 
         systick.enable_interrupt_lo();
+        //systick.enable_interrupt_hi();
 
-        systick.set_cycle_mode_lo();
+        systick.set_continuos_mode_lo();
+        systick.set_continuos_mode_hi();
+
+        systick.disable_one_shot_mode_lo();
+        systick.disable_one_shot_mode_hi();
 
         systick.disable_lo();
+        systick.disable_hi();
 
         Systick { systick, cnt: 0 }
     }
@@ -46,28 +46,54 @@ impl<const TIMER_HZ: u32> Monotonic for Systick<TIMER_HZ> {
     type Duration = fugit::TimerDurationU64<TIMER_HZ>;
 
     fn now(&mut self) -> Self::Instant {
-        todo!()
+        let mut val_hi = SYST::get_counter_hi();
+        let mut val_lo = SYST::get_counter_lo();
+
+        // load lo and hi until hi was twice the same value (no overflow)
+        while SYST::get_counter_hi() != val_hi {
+            val_hi = SYST::get_counter_hi();
+            val_lo = SYST::get_counter_lo();
+        }
+
+        // put lo and hi bits together
+        Self::Instant::from_ticks(((val_hi as u64) << 32) + (val_lo as u64))
+
     }
 
     fn set_compare(&mut self, instant: Self::Instant) {
-        todo!()
+        // TODO: Discuss best practice
+        // first, set hi to a value not to reach so soon
+        let val_hi = SYST::get_counter_hi()+2;
+        self.systick.set_compare_hi(val_hi);
+
+        // then, set the real lo and finally hi part
+        self.systick.set_compare_lo((instant.ticks() & 0xFFFF_FFFF) as u32);
+        self.systick.set_compare_hi((instant.ticks() >> 32) as u32);
+
     }
 
     fn clear_compare_flag(&mut self) {
-        todo!()
+        // not necessary as far as I know
     }
 
     fn zero() -> Self::Instant {
-        todo!()
+        Self::Instant::from_ticks(0)
     }
 
     unsafe fn reset(&mut self) {
-        todo!()
+        self.systick.set_counter_hi(0);
+        self.systick.set_counter_lo(0);
     }
 
     fn on_interrupt(&mut self) {}
 
-    fn enable_timer(&mut self) {}
+    fn enable_timer(&mut self) {
+        self.systick.enable_hi();
+        self.systick.enable_lo();
+    }
 
-    fn disable_timer(&mut self) {}
+    fn disable_timer(&mut self) {
+        self.systick.disable_lo();
+        self.systick.disable_hi();
+    }
 }
