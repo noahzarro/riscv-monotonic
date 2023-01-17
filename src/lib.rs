@@ -57,6 +57,7 @@ impl<const TIMER_HZ: u32> Monotonic for Systick<TIMER_HZ> {
 
     unsafe fn reset(&mut self) {
         self.systick.set_counter_lo(0);
+        self.systick.enable_lo();
     }
 
     fn on_interrupt(&mut self) {}
