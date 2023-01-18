@@ -6,7 +6,6 @@ use rtic_monotonic::Monotonic;
 
 pub struct Systick<const TIMER_HZ: u32> {
     systick: SYST,
-    cnt: u64,
 }
 
 impl<const TIMER_HZ: u32> Systick<TIMER_HZ> {
@@ -17,7 +16,7 @@ impl<const TIMER_HZ: u32> Systick<TIMER_HZ> {
     ///
     /// Notice that the actual rate of the timer is a best approximation based on the given
     /// `sysclk` and `TIMER_HZ`.
-    pub fn new(mut systick: SYST, sysclk: u32) -> Self {
+    pub fn new(mut systick: SYST) -> Self {
 
         systick.disable_cascaded_mode();
         
@@ -29,7 +28,7 @@ impl<const TIMER_HZ: u32> Systick<TIMER_HZ> {
 
         systick.disable_lo();
 
-        Systick { systick, cnt: 0 }
+        Systick { systick}
     }
 }
 
